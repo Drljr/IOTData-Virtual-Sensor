@@ -1,0 +1,8 @@
+# Ignore environment files
+.env
+
+# Ignore certs folder
+certs/
+
+# Ignore node_modules folder
+node_modules/

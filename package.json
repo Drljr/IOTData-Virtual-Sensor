@@ -1,0 +1,23 @@
+{
+  "name": "cloud",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.788.0",
+    "@aws-sdk/client-iot-data-plane": "^3.758.0",
+    "@aws-sdk/lib-dynamodb": "^3.788.0",
+    "aws-iot-device-sdk": "^2.2.15",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "iot-device-sdk": "^0.2.2",
+    "mongoose": "^8.12.1"
+  }
+}
