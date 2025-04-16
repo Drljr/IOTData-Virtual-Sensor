@@ -2,59 +2,96 @@ require("dotenv").config();
 const awsIot = require("aws-iot-device-sdk");
 const mongoose = require("mongoose");
 
-// MongoDB setup (you can remove this part if you don't want to store in MongoDB)
-// If MongoDB isn't needed, just skip the mongoose part
-const mongoURI = process.env.MONGO_URI;
-console.log("🔍 MongoDB URI:", mongoURI);
+// Required environment variables
+const requiredEnvVars = [
+    "AWS_IOT_ENDPOINT",
+    "AWS_IOT_TOPIC",
+    "DEVICE_CERT_PATH",
+    "DEVICE_KEY_PATH",
+    "ROOT_CA_PATH",
+    "DEVICE_CLIENT_ID",
+    "MONGO_URI"
+];
 
-mongoose.connect(mongoURI, {
+const missingEnv = requiredEnvVars.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+    console.error(`❌ Missing ENV vars: ${missingEnv.join(", ")}`);
+    process.exit(1);
+}
+
+// Load config
+const {
+    AWS_IOT_ENDPOINT,
+    AWS_IOT_TOPIC,
+    DEVICE_CERT_PATH,
+    DEVICE_KEY_PATH,
+    ROOT_CA_PATH,
+    DEVICE_CLIENT_ID,
+    MONGO_URI,
+} = process.env;
+
+console.log("🔧 Configuration Loaded:");
+console.log(`   AWS Endpoint: ${AWS_IOT_ENDPOINT}`);
+console.log(`   Client ID: ${DEVICE_CLIENT_ID}`);
+console.log(`   Topic: ${AWS_IOT_TOPIC}`);
+console.log(`   Cert Path: ${DEVICE_CERT_PATH}`);
+console.log(`   Key Path: ${DEVICE_KEY_PATH}`);
+console.log(`   CA Path: ${ROOT_CA_PATH}`);
+console.log("--- IoT Device Simulator Start ---");
+
+// MongoDB Connection
+mongoose.connect(MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     serverSelectionTimeoutMS: 5000,
 })
-    .then(() => console.log("✅ MongoDB Connected Successfully"))
+    .then(() => console.log("✅ MongoDB Connected"))
     .catch((err) => {
         console.error("❌ MongoDB Connection Error:", err.message);
     });
 
-// AWS IoT Core device configuration
+// Define sensor schema
+const sensorSchema = new mongoose.Schema({
+    temperature: Number,
+    humidity: Number,
+    timestamp: String
+});
+const SensorData = mongoose.model("SensorData", sensorSchema);
+
+// AWS IoT Device Setup
 const device = awsIot.device({
-    keyPath: "./certs/19e9587d20c9456f68c9c899cb0e1048ae4fcb206f9f32cca4d96a79858c2fee-private.pem.key",
-    certPath: "./certs/AmazonRootCA3.pem",
-    caPath: "./certs/AmazonRootCA1.pem",
-    clientId: "VirtualSensor",
-    host: process.env.AWS_IOT_ENDPOINT,
+    keyPath: DEVICE_KEY_PATH,
+    certPath: DEVICE_CERT_PATH,
+    caPath: ROOT_CA_PATH,
+    clientId: DEVICE_CLIENT_ID,
+    host: AWS_IOT_ENDPOINT,
 });
 
-// Connect to AWS IoT Core
+// On connect
 device.on("connect", () => {
-    console.log("✅ Connected to AWS IoT Core");
+    console.log(`✅ Connected to AWS IoT Core as ${DEVICE_CLIENT_ID}`);
 
-    setInterval(() => {
+    setInterval(async () => {
         const data = {
-            temperature: parseFloat((Math.random() * 10 + 20).toFixed(2)),
-            humidity: parseFloat((Math.random() * 10 + 40).toFixed(2)),
+            temperature: +(Math.random() * 10 + 20).toFixed(2),
+            humidity: +(Math.random() * 10 + 40).toFixed(2),
             timestamp: new Date().toISOString(),
         };
 
-        // Publish to AWS IoT Core
-        console.log("📡 Publishing to AWS IoT:", data);
-        device.publish(process.env.AWS_IOT_TOPIC, JSON.stringify(data));
+        console.log("📡 Publishing to topic:", AWS_IOT_TOPIC);
+        console.log("→ Payload:", data);
+        device.publish(AWS_IOT_TOPIC, JSON.stringify(data));
 
-        // Optionally, save to MongoDB (if required)
-        // Try to save the data to MongoDB
-        // If you don't want MongoDB storage, remove this part
-        // try {
-        //     const savedData = await SensorData.create(data);
-        //     console.log("💾 Saved to MongoDB:", savedData);
-        // } catch (err) {
-        //     console.error("❌ MongoDB Save Error:", err.message);
-        // }
-
-    }, 5000); // Every 5 seconds
+        // Optionally save to MongoDB
+        try {
+            const saved = await SensorData.create(data);
+            console.log("💾 MongoDB Saved:", saved._id);
+        } catch (err) {
+            console.error("❌ MongoDB Save Error:", err.message);
+        }
+    }, 5000);
 });
 
-// Error handling for AWS IoT
 device.on("error", (error) => {
     console.error("❌ IoT Error:", error.message);
 });
