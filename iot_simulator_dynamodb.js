@@ -112,11 +112,10 @@ function publishData() {
   const payload = JSON.stringify({
     deviceId: config.awsIot.clientId, // Send client ID as part of payload
     timestamp: data.timestamp, // Send timestamp (used by Rule for Sort Key)
-    data: {
-      // Nest sensor readings if your rule expects it
-      temperature: data.temperature,
-      humidity: data.humidity,
-    },
+
+    // Nest sensor readings if your rule expects it
+    temperature: data.temperature,
+    humidity: data.humidity,
     // If your Rule's SELECT statement directly picks temperature/humidity like
     // SELECT temperature, humidity, timestamp() as timestamp, newuuid() as messageId ...
     // then send a flatter payload:
