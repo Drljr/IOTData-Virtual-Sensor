@@ -1,6 +1,10 @@
 require("dotenv").config();
-
 const awsIot = require("aws-iot-device-sdk");
+const AWS = require("aws-sdk");
+
+// aws region and DynamoDB setup
+AWS.config.update({ region: process.env.AWS_REGION });
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const requiredEnvVars = [
   "AWS_IOT_ENDPOINT",
@@ -9,6 +13,8 @@ const requiredEnvVars = [
   "DEVICE_KEY_PATH",
   "ROOT_CA_PATH",
   "DEVICE_CLIENT_ID",
+  "AWS_DYNAMODB_TABLE",
+  "AWS_REGION"
 ];
 const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 
@@ -32,8 +38,11 @@ const config = {
       certPath: process.env.DEVICE_CERT_PATH,
       caPath: process.env.ROOT_CA_PATH,
     },
-    publishIntervalMs: 5000, // Interval in milliseconds (5 seconds)
+    publishIntervalMs: 5000,
   },
+  dynamodb: {
+    table: process.env.AWS_DYNAMODB_TABLE,
+  }
 };
 
 console.log("🔧 Configuration Loaded:");
@@ -102,6 +111,25 @@ function generateSensorData() {
     timestamp: Math.floor(Date.now() / 1000), // DynamoDB Sort Key expects Number (Unix Epoch seconds)
     // Add other fields if needed by your rule/table
   };
+}
+function saveToDynamoDB(payloadObj) {
+  const params = {
+    TableName: config.dynamodb.table,
+    Item: {
+      deviceId: payloadObj.deviceId,
+      timestamp: payloadObj.timestamp,
+      temperature: payloadObj.data.temperature,
+      humidity: payloadObj.data.humidity,
+    },
+  };
+
+  dynamodb.put(params, (err) => {
+    if (err) {
+      console.error("❌ Error saving to DynamoDB:", err);
+    } else {
+      console.log("💾 Saved to DynamoDB");
+    }
+  });
 }
 
 function publishData() {
